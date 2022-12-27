@@ -32,16 +32,16 @@ struct B18EdgeData {
   ushort numLines;
   uint nextInters;
   float length;
-  float maxSpeedMperSec;
+  float maxSpeedMperSec;  // Maximum speed of the edge
   uint nextIntersMapped;
-  float curr_cum_vel = 0;
-  float curr_iter_num_cars = 0;
+  float curr_cum_vel = 0; // Current cumulative velocity of the edge
+  float curr_iter_num_cars = 0; // Current number of cars in the edge
 };
 
 struct B18IntersectionData {
   ushort state;
   ushort stateLine;
-  ushort totalInOutEdges;
+  ushort totalInOutEdges; // total number of in and out edges
   uint edge[24];// up to six arms intersection
   float nextEvent;
 };

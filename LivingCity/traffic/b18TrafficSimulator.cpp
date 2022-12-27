@@ -11,7 +11,7 @@
 #endif
 #include <thread>
 
-#include "b18TrafficDijkstra.h"
+#include "b18TrafficDijkstra.h" // This is parallelized can we use it with GPU?
 #include "b18TrafficJohnson.h"
 #include "b18TrafficSP.h"
 #include "b18CUDA_trafficSimulator.h"
@@ -25,7 +25,7 @@
 #define DEBUG_SIMULATOR 0
 #define DEBUG_T_LIGHT 0
 
-#ifdef __linux__
+#ifdef __linux__  // How the system defines the OS?
 #include <unistd.h>
 void printPercentageMemoryUsed() {
   // TODO
@@ -46,8 +46,10 @@ const float intersectionClearance = 7.8f;
 const bool calculatePollution = true;
 
 B18TrafficSimulator::B18TrafficSimulator(float _deltaTime, RoadGraph *originalRoadGraph,
-    const parameters & inputSimParameters, LCUrbanMain *urbanMain) : deltaTime(_deltaTime), simParameters(inputSimParameters),
-    b18TrafficOD (B18TrafficOD(simParameters)) {
+    const parameters & inputSimParameters, LCUrbanMain *urbanMain) :
+      deltaTime(_deltaTime), // What does this do?
+      simParameters(inputSimParameters),
+      b18TrafficOD (B18TrafficOD(simParameters)) {
   simRoadGraph = new RoadGraph(*originalRoadGraph);
   clientMain = urbanMain;
 }
@@ -69,7 +71,7 @@ void B18TrafficSimulator::createRandomPeople(float startTime, float endTime,
 
 void B18TrafficSimulator::createB2018People(float startTime, float endTime, int limitNumPeople,
     bool addRandomPeople, bool useSP) {
-  b18TrafficOD.resetTrafficPersonJob(trafficPersonVec);
+  b18TrafficOD.resetTrafficPersonJob(trafficPersonVec); // Where does trafficPersonVec come from?
   b18TrafficOD.loadB18TrafficPeople(startTime, endTime, trafficPersonVec,
       simRoadGraph->myRoadGraph_BI, limitNumPeople, addRandomPeople);
 }
@@ -307,7 +309,7 @@ void B18TrafficSimulator::simulateInGPU(const int numOfPasses, const float start
     printf("First time_departure %f\n", currentTime);
 
     int numBlocks = ceil(trafficPersonVec.size() / 384.0f);
-    int threadsPerBlock = 384;
+    int threadsPerBlock = 384;  // 12 warps per block
     std::cout << "Running trafficSimulation with the following configuration:"  << std::endl
               << ">  Number of people: " << trafficPersonVec.size() << std::endl
               << ">  Number of blocks: " << numBlocks << std::endl
