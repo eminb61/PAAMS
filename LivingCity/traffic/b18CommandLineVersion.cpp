@@ -89,7 +89,7 @@ void B18CommandLineVersion::runB18Simulation() {
       settings.value("a",0.557040909258405).toDouble(),
       settings.value("b",2.9020578588167).toDouble(),
       settings.value("T",0.5433027817144876).toDouble(),
-      settings.value("s_0",1.3807498735425845).toDouble()};
+      settings.value("s_0",1.3807498735425845).toDouble()}; // Minimum following distance
 
 
   std::cout << "Simulation parameters: "

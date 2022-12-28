@@ -60,7 +60,7 @@ struct B18TrafficPerson {
   float v;//current velocity
   float a;//acceleration
   float b;//break
-  float T;// Time heading
+  float T;// Desired time headway
   float cum_v = 0; //Cumulative velocity of each person across all iterations
 
   // lane changing

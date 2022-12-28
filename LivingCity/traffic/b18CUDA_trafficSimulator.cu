@@ -28,7 +28,7 @@
 
 #define MINIMUM_NUMBER_OF_CARS_TO_MEASURE_SPEED 5
 
-__constant__ float intersectionClearance = 7.8f; //TODO(pavan): WHAT IS THIS?
+__constant__ float intersectionClearance = 7.8f;
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true) {
@@ -53,6 +53,7 @@ inline void printMemoryUsage() {
 }
 ////////////////////////////////
 // VARIABLES
+// _d means device
 LC::B18TrafficPerson *trafficPersonVec_d;
 uint *indexPathVec_d;
 uint indexPathVec_d_size;
@@ -98,7 +99,7 @@ void b18InitCUDA(
   const uint numStepsPerSample = 30.0f / deltaTime; //each min
   const uint numStepsTogether = 12; //change also in density (10 per hour)
   { // people
-    size_t size = trafficPersonVec.size() * sizeof(LC::B18TrafficPerson);
+    size_t size = trafficPersonVec.size() * sizeof(LC::B18TrafficPerson); // Calculate the size of the array
     if (fistInitialization) gpuErrchk(cudaMalloc((void **) &trafficPersonVec_d, size));   // Allocate array on device
     gpuErrchk(cudaMemcpy(trafficPersonVec_d, trafficPersonVec.data(), size, cudaMemcpyHostToDevice));
   }
@@ -194,7 +195,9 @@ void b18GetDataCUDA(std::vector<LC::B18TrafficPerson>& trafficPersonVec, std::ve
   cudaMemcpy(edgesData.data(),edgesData_d,size_edges,cudaMemcpyDeviceToHost);//cudaMemcpyHostToDevice
 }
 
-
+/* Calculates the desired gap for a lane change for a vehicle at a given position in a map, 
+represented by the laneMap array, which stores information about the traffic in lanes.
+*/
  __device__ void calculateGapsLC(
    uint mapToReadShift,
    uchar* laneMap,
@@ -203,10 +206,10 @@ void b18GetDataCUDA(std::vector<LC::B18TrafficPerson>& trafficPersonVec, std::ve
    ushort numLinesEdge,
    float posInMToCheck,
    float length,
-   uchar &v_a,
-   uchar &v_b,
-   float &gap_a,
-   float &gap_b,
+   uchar &v_a,  // speed of the lead vehicle
+   uchar &v_b,  //speed of the lag vehicle
+   float &gap_a,  //desired lead gap for a lane change
+   float &gap_b,  //desired lag gap for a lane change
    uint laneMap_d_size) {
 
    ushort numOfCells = ceil(length);
@@ -269,6 +272,8 @@ void b18GetDataCUDA(std::vector<LC::B18TrafficPerson>& trafficPersonVec, std::ve
    }
   }//
 
+
+// Calculates the range of lanes that a vehicle should consider for a lane change, given its current lane and the next edge it will be taking.
 __device__ void calculateLaneCarShouldBe(
   uint curEdgeLane,
   uint nextEdge,
@@ -278,15 +283,15 @@ __device__ void calculateLaneCarShouldBe(
   ushort &initOKLanes,
   ushort &endOKLanes) {
 
-  initOKLanes = 0;
-  endOKLanes = edgeNumLanes;
+  initOKLanes = 0;  // initOKLanes means the first lane that the car can be in which is 0.
+  endOKLanes = edgeNumLanes;  // endOKLanes means the last lane that the car can be in which is the total number of lanes
   bool currentEdgeFound = false;
   bool exitFound = false;
   ushort numExitToTake = 0;
   ushort numExists = 0;
 
   for (int eN = intersections[edgeNextInters].totalInOutEdges - 1; eN >= 0; eN--) {  // clockwise
-    uint procEdge = intersections[edgeNextInters].edge[eN];
+    uint procEdge = intersections[edgeNextInters].edge[eN]; // procEdge: 0x800000 | 0x0 | 0xFFFFF
 
     if ((procEdge & kMaskLaneMap) == curEdgeLane) { //current edge 0xFFFFF
       currentEdgeFound = true;
@@ -546,6 +551,11 @@ __global__ void kernel_trafficSimulation(
     assert(firstEdge < edgesData_d_size);
           
     //1.4 try to place it in middle of edge
+    /*
+    If the person is ready to start their trip, the function retrieves their starting edge and tries to place them in the middle of the edge. 
+    If there is not enough room to place the person, the function continues checking the remaining cells on the edge until it finds an 
+    empty space that is large enough to fit the person.
+    */ 
     ushort numOfCells = ceil(edgesData[firstEdge].length);
     ushort initShift = (ushort) (0.5f * numOfCells); //number of cells it should be placed (half of road)
 
@@ -657,7 +667,7 @@ __global__ void kernel_trafficSimulation(
   bool found = false;
   bool noFirstInLaneBeforeSign = false; //use for stop control (just let 1st to pass) TODO(pavan): I DON'T GET THIS
   bool noFirstInLaneAfterSign = false; //use for stop control (just let 1st to pass)
-  float s;
+  float s;  // Distance gap to the following car
   float delta_v;
   uchar laneChar;
   ushort byteInLine = (ushort) floor(trafficPersonVec[p].posInLaneM);
@@ -708,7 +718,7 @@ __global__ void kernel_trafficSimulation(
 
         if (laneChar != 0xFF) {
           s = ((float) (b)); //m
-          delta_v = trafficPersonVec[p].v - (laneChar / 3.0f);  // laneChar is in 3*ms (to save space in array)
+          delta_v = trafficPersonVec[p].v - (laneChar / 3.0f);  // laneChar is in 3*ms (to save space in array). delta_v is the velocity difference between the next edge speed and the current speed 
           found = true;
           break;
         }
@@ -766,7 +776,7 @@ __global__ void kernel_trafficSimulation(
   }
 
   // COLOR
-  trafficPersonVec[p].color = p << 8;
+  trafficPersonVec[p].color = p << 8;   // Bitwise shift left 8 bits
 
   // STOP (check if it is a stop if it can go through)
   trafficPersonVec[p].posInLaneM = trafficPersonVec[p].posInLaneM + numMToMove;
